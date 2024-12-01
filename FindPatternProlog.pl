@@ -1,82 +1,72 @@
 :- use_module(library(random)).
-:- use_module(library(lists)).
 
-% Main entry point
-main :-
-    % Generate a list of 1000 random numbers between 1 and 9
-    generate_random_list(1000, 1, 9, Numbers),
-
-    % Calculate frequency of each number from 1 to 9
-    calculate_frequency(1, 9, Numbers, Frequencies),
-    
-    % Print frequency of each number
-    write('Frequency of each number:'), nl,
-    print_frequencies(Frequencies, 1),
-
-    % Find repeated sequences of length 3
-    find_sequences_of_length_3(Numbers, Sequences),
-    calculate_sequence_frequencies(Sequences, SequenceCounts),
-    
-    % Print sequences that appear more than 4 times
-    write('\nRepeated sequences of length 3 that come up more than 4 times:'), nl,
-    print_repeated_sequences(SequenceCounts).
-
-% Generate a list of N random numbers between Min and Max
-generate_random_list(0, _, _, []) :- !.
-generate_random_list(N, Min, Max, [X | Xs]) :-
+% generate_random_list/2 generates a list of random integers between 0 and 9.
+generate_random_list(0, []).
+generate_random_list(N, [R|Rest]) :-
     N > 0,
-    random_between(Min, Max, X),
+    random_between(0, 9, R),
     N1 is N - 1,
-    generate_random_list(N1, Min, Max, Xs).
+    generate_random_list(N1, Rest).
 
-% Calculate the frequency of each number between Min and Max
-calculate_frequency(Max, Max, Numbers, [Count]) :-
-    count_occurrences(Max, Numbers, Count), !.
-calculate_frequency(Min, Max, Numbers, [Count | Counts]) :-
-    Min =< Max,
-    count_occurrences(Min, Numbers, Count),
-    Min1 is Min + 1,
-    calculate_frequency(Min1, Max, Numbers, Counts).
+% find_time_loops/3 finds repeated patterns of given length and returns their frequency.
+find_time_loops(List, Len, TimeLoops) :-
+    findall(Pattern, sublist_of_length(List, Len, Pattern), Patterns),
+    count_patterns(Patterns, PatternCounts),
+    include(repeated_pattern, PatternCounts, TimeLoops),
+    print_repeated_patterns(TimeLoops).
 
-% Count occurrences of an element in a list
-count_occurrences(_, [], 0).
-count_occurrences(Elem, [Elem | Tail], Count) :-
-    count_occurrences(Elem, Tail, Count1),
-    Count is Count1 + 1.
-count_occurrences(Elem, [_ | Tail], Count) :-
-    count_occurrences(Elem, Tail, Count).
+% sublist_of_length/3 gets a sublist of given length from the original list.
+sublist_of_length(List, Len, Sublist) :-
+    append(_, Rest, List),
+    append(Sublist, _, Rest),
+    length(Sublist, Len).
 
-% Print frequencies from Min to Max
-print_frequencies([], _).
-print_frequencies([Freq | Freqs], N) :-
-    format('~d: ~d times~n', [N, Freq]),
-    N1 is N + 1,
-    print_frequencies(Freqs, N1).
+% count_patterns/2 counts the occurrences of each pattern.
+count_patterns(Patterns, PatternCounts) :-
+    findall(Count-Pattern, (member(Pattern, Patterns), count_occurrences(Patterns, Pattern, Count)), PatternCountsUnsorted),
+    sort(PatternCountsUnsorted, PatternCounts).
 
-% Find all sequences of length 3 in a list
-find_sequences_of_length_3(List, Sequences) :-
-    findall(Seq, (append(_, [A, B, C | _], List), Seq = [A, B, C]), Sequences).
+% count_occurrences/3 counts how many times a pattern occurs in the list.
+count_occurrences(List, Element, Count) :-
+    aggregate_all(count, member(Element, List), Count).
 
-% Calculate sequence frequencies
-calculate_sequence_frequencies(Sequences, SequenceCounts) :-
-    msort(Sequences, SortedSequences),
-    encode_sequences(SortedSequences, SequenceCounts).
+% repeated_pattern/1 filters patterns that occur more than once.
+repeated_pattern(Count-_) :-
+    Count > 1.
 
-% Encode the frequency of each unique sequence
-encode_sequences([], []).
-encode_sequences([Seq | Rest], [Seq-Count | EncodedRest]) :-
-    count_occurrences(Seq, [Seq | Rest], Count),
-    delete(Rest, Seq, Remaining),
-    encode_sequences(Remaining, EncodedRest).
+% print_repeated_patterns/1 prints the patterns that occur more than once.
+print_repeated_patterns(TimeLoops) :-
+    format('\nGefundene wiederholte Muster:\n'),
+    forall(member(Count-Pattern, TimeLoops),
+           format('Muster: ~w | Wiederholungen: ~d\n', [Pattern, Count])).
 
-% Print sequences repeated more than 4 times
-print_repeated_sequences([]).
-print_repeated_sequences([Seq-Count | Rest]) :-
-    (   Count > 4
-    ->  format('~w appears ~d times~n', [Seq, Count])
-    ;   true
-    ),
-    print_repeated_sequences(Rest).
+% look_for_outliers/1 identifies outliers in the time loops by looking at frequency differences.
+look_for_outliers(TimeLoops) :-
+    maplist(arg(1), TimeLoops, Counts),
+    sum_list(Counts, Sum),
+    length(Counts, Length),
+    ( Length > 0 -> Avg is Sum / Length ; Avg = 0 ),
+    max_member(Max, Counts),
+    nth1(Index, Counts, Max),
+    nth1(Index, TimeLoops, Max-Pattern),
+    ( Max - Avg > 3 ->
+        format('\nVermeintliche Zeitschleife gefunden!\n'),
+        format('~w wurde ~d mal wiederholt.\n', [Pattern, Max])
+    ;
+        format('\nKeine vermeintliche Zeitschleife gefunden!\n')
+    ).
 
-% Run the main program
+% main/0 serves as the entry point for the program.
+main :-
+    % 1. Generate a random list of 1000 elements
+    generate_random_list(1000, RandomNums),
+
+    % 2. Find repeating patterns of length 5
+    Len = 5,
+    find_time_loops(RandomNums, Len, TimeLoops),
+
+    % 3. Look for outliers in the time loops
+    look_for_outliers(TimeLoops).
+
+% To run the program, simply call main.
 :- main.
