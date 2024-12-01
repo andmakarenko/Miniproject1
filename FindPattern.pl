@@ -2,35 +2,67 @@ use strict;
 use warnings;
 use List::Util qw(shuffle);
 
-# Generate an array of 1000 random integers between 1 and 9
-my @numbers;
-for my $i (1..1000) {
-    push @numbers, int(rand(9)) + 1;
+# Generate a list of random numbers
+sub generate_random_list {
+    my ($n) = @_;
+    my @random_nums;
+    for (1..$n) {
+        push @random_nums, int(rand(10));
+    }
+    return \@random_nums;
 }
 
-# Calculate frequency of each number
-my %frequency;
-foreach my $num (@numbers) {
-    $frequency{$num}++;
+# Find repeating patterns in the list
+sub find_time_loops {
+    my ($nums, $len) = @_;
+    my %pattern_frequency;
+
+    for my $i (0..$#$nums - $len + 1) {
+        my $pattern = join(',', @$nums[$i..$i + $len - 1]) . ',';
+        $pattern_frequency{$pattern}++;
+    }
+
+    # Keep only patterns that occur more than once
+    foreach my $key (keys %pattern_frequency) {
+        delete $pattern_frequency{$key} if $pattern_frequency{$key} < 2;
+    }
+
+    return \%pattern_frequency;
 }
 
-# Print frequency of each number
-print "Frequency of each number:\n";
-foreach my $num (sort { $a <=> $b } keys %frequency) {
-    print "$num: $frequency{$num} times\n";
-}
+# Look for outliers in the repeating patterns
+sub look_for_outliers {
+    my ($time_loops) = @_;
+    my $avg = 0.0;
+    my $max = 0;
+    my $max_key = '';
 
-# Find repeated sequences of length 3
-my %sequence_count;
-for my $i (0..$#numbers - 2) {
-    my $sequence = join(",", @numbers[$i, $i + 1, $i + 2]);
-    $sequence_count{$sequence}++;
-}
+    print "\nGefundene Zeitschleifen in timeLoops:\n";
+    if (!%$time_loops) {
+        print "Keine Zeitschleifen gefunden.\n";
+    } else {
+        foreach my $key (keys %$time_loops) {
+            print "Muster: $key | Wiederholungen: $time_loops->{$key}\n";
+            $avg += $time_loops->{$key};
+            if ($time_loops->{$key} > $max) {
+                $max = $time_loops->{$key};
+                $max_key = $key;
+            }
+        }
+    }
 
-# Print sequences repeated more than 4 times
-print "\nRepeated sequences of length 3 that come up more than 4 times:\n";
-foreach my $sequence (keys %sequence_count) {
-    if ($sequence_count{$sequence} > 4) {
-        print "$sequence appears $sequence_count{$sequence} times\n";
+    $avg = $avg / (keys %$time_loops) if (keys %$time_loops);
+
+    if ($max - $avg > 3) {
+        print "\nVermeintliche Zeitschleife gefunden!\n";
+        print "$max_key wurde $max mal wiederholt.\n";
+    } else {
+        print "\nKeine vermeintliche Zeitschleife gefunden!\n";
     }
 }
+
+# Main execution
+my $random_nums = generate_random_list(1000);
+my $len = 5;
+my $random_time_loops = find_time_loops($random_nums, $len);
+look_for_outliers($random_time_loops);
