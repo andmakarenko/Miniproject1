@@ -1,24 +1,80 @@
-# Generate an array of 1000 random integers between 1 and 9
-numbers = (Math.floor(Math.random() * 9) + 1 for i in [0...1000])
+random = Math.random
+floor = Math.floor
 
-# Calculate the frequency of each number
-frequency = {}
-for num in numbers
-  frequency[num] = (frequency[num] or 0) + 1
+# Function to generate the trick list
+generateTrickList = (n, patternLen) ->
+  nums = []
+  pattern = []
 
-# Print the frequency of each number
-console.log "Frequency of each number:"
-for num, count of frequency
-  console.log "#{num}: #{count} times"
+  # Generate a pattern of random numbers of length patternLen
+  for i in [0...patternLen]
+    pattern.push floor(random() * 10)
 
-# Find repeated sequences of length 3
-sequenceMap = {}
-for i in [0...numbers.length - 2]
-  sequence = "#{numbers[i]},#{numbers[i + 1]},#{numbers[i + 2]}"
-  sequenceMap[sequence] = (sequenceMap[sequence] or 0) + 1
+  # Generate the full list of random numbers, sometimes inserting the pattern
+  i = 0
+  while i < n
+    if i + patternLen < n and random() < 0.01
+      for j in [0...patternLen]
+        nums.push pattern[j]
+      i += patternLen
+    else
+      nums.push floor(random() * 10)
+      i += 1
 
-# Print sequences repeated more than 4 times
-console.log "\nRepeated sequences of length 3 that come up more than 4 times:"
-for sequence, count of sequenceMap
-  if count > 4
-    console.log "#{sequence} appears #{count} times"
+  return nums
+
+# Function to find time loops within the list
+findTimeLoops = (nums, len) ->
+  patternFrequency = {}
+
+  for i in [0..(nums.length - len)]
+    pattern = (nums[j] for j in [i...(i + len)]).join(",")
+
+    # Update the frequency of the pattern
+    patternFrequency[pattern] ?= 0
+    patternFrequency[pattern] += 1
+
+  # Filter out patterns that occur only once
+  for key, value of patternFrequency
+    delete patternFrequency[key] if value < 2
+
+  return patternFrequency
+
+# Function to look for outliers within the found patterns
+lookForOutliers = (timeLoops) ->
+  avg = 0.0
+  max = 0
+  maxKey = ""
+
+  console.log "\nGefundene Zeitschleifen in timeLoops:"
+  if Object.keys(timeLoops).length is 0
+    console.log "Keine Zeitschleifen gefunden."
+  else
+    for key, value of timeLoops
+      console.log "Muster: #{key} | Wiederholungen: #{value}"
+
+  # Calculate the average and find the maximum frequency
+  for key, value of timeLoops
+    avg += value
+    if value > max
+      max = value
+      maxKey = key
+
+  avg = avg / Object.keys(timeLoops).length
+
+  # Determine if an outlier exists based on the average
+  if max - avg > 3
+    console.log "\nVermeintliche Zeitschleife gefunden!"
+    console.log "#{maxKey} wurde #{max} mal wiederholt."
+  else
+    console.log "\nKeine vermeintliche Zeitschleife gefunden!"
+
+# Main execution
+main = ->
+  trickNums = generateTrickList 1000, 5
+  len = 5
+  trickTimeLoops = findTimeLoops trickNums, len
+  lookForOutliers trickTimeLoops
+
+# Run the main function
+main()
